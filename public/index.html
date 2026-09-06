@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>agentic-ops-builder</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --panel: #161923;
+      --panel-2: #1d2130;
+      --border: #2a2f40;
+      --text: #e6e8ef;
+      --muted: #9aa0b4;
+      --accent: #6ea8fe;
+      --ok: #4ade80;
+      --err: #f87171;
+      --warn: #fbbf24;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    header {
+      padding: 20px 28px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+    header h1 { font-size: 18px; margin: 0; }
+    header p { margin: 0; color: var(--muted); font-size: 13px; }
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px 28px 64px;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 860px) {
+      main { grid-template-columns: 1fr; }
+    }
+    section.panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px;
+    }
+    section.panel h2 {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin: 0 0 12px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin: 12px 0 4px;
+    }
+    input[type="text"], textarea {
+      width: 100%;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 8px 10px;
+      font-size: 14px;
+      font-family: inherit;
+      resize: vertical;
+    }
+    textarea { min-height: 90px; }
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+      padding: 9px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      background: var(--accent);
+      color: #0b1020;
+    }
+    button.secondary {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .workflow-list, .run-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+    .workflow-item, .run-item {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      cursor: pointer;
+    }
+    .workflow-item:hover, .run-item:hover { border-color: var(--accent); }
+    .workflow-item .name { font-weight: 600; font-size: 14px; }
+    .workflow-item .goal { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .badge.completed { background: rgba(74,222,128,0.15); color: var(--ok); }
+    .badge.failed { background: rgba(248,113,113,0.15); color: var(--err); }
+    .badge.running, .badge.pending { background: rgba(251,191,36,0.15); color: var(--warn); }
+    .step {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      background: var(--panel-2);
+    }
+    .step .tool-name { font-weight: 600; font-size: 13px; color: var(--accent); }
+    .step pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 12px;
+      background: #0b0e15;
+      border-radius: 6px;
+      padding: 8px;
+      margin: 6px 0 0;
+      max-height: 220px;
+      overflow: auto;
+    }
+    .empty { color: var(--muted); font-size: 13px; padding: 8px 0; }
+    .final-message {
+      white-space: pre-wrap;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 14px;
+      font-size: 14px;
+    }
+    #status-msg { font-size: 13px; margin-top: 8px; }
+    #status-msg.error { color: var(--err); }
+    #status-msg.ok { color: var(--ok); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>agentic-ops-builder</h1>
+    <p>define a goal, let a Claude-driven agent pick tools step by step</p>
+  </header>
+
+  <main>
+    <div style="display:flex; flex-direction:column; gap:24px;">
+      <section class="panel">
+        <h2>New workflow</h2>
+        <label for="wf-name">Name</label>
+        <input type="text" id="wf-name" placeholder="Check GitHub API status" />
+
+        <label for="wf-desc">Description (optional)</label>
+        <input type="text" id="wf-desc" placeholder="Health check + report" />
+
+        <label for="wf-goal">Goal prompt</label>
+        <textarea id="wf-goal" placeholder="Check if https://api.github.com is up and write the result to a status.txt file"></textarea>
+
+        <div class="row" style="margin-top:14px;">
+          <button id="create-btn">Create workflow</button>
+        </div>
+        <div id="status-msg"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Workflows</h2>
+        <div id="workflow-list" class="workflow-list">
+          <div class="empty">Loading…</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Recent runs</h2>
+        <div id="run-list" class="run-list">
+          <div class="empty">Loading…</div>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel" id="detail-panel">
+      <h2>Run trace</h2>
+      <div id="detail-content">
+        <div class="empty">Create a workflow, then click it and press "Run" to see the step-by-step trace here.</div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment
+.env
+.env.local
+
+# Logs
+npm-debug.log*
+*.log
+
+# OS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+
+# Sandbox scratch space used by the read_local_file / write_local_file tools —
+# keep the directory in git via .gitkeep, but never commit what the agent writes into it.
+sandbox/*
+!sandbox/.gitkeep
