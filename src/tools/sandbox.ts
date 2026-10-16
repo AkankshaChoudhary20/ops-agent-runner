@@ -34,34 +34,30 @@ export function resolveSandboxPath(requestedPath: string): string {
     throw new PathTraversalError(String(requestedPath));
   }
 
-  // Reject absolute paths outright — only paths relative to the sandbox root
-  // are meaningful here.
-  const candidate = path.isAbsolute(requestedPath)
-    ? requestedPath
-    : path.join(SANDBOX_DIR, requestedPath);
+  if (path.isAbsolute(requestedPath)) throw new PathTraversalError(requestedPath);
+  const resolved = path.resolve(SANDBOX_DIR, requestedPath);
+  const inside = (root: string, target: string) => {
+    const relative = path.relative(root, target);
+    return relative === "" || (relative !== ".." && !relative.startsWith(".." + path.sep) && !path.isAbsolute(relative));
+  };
+  if (!inside(SANDBOX_DIR, resolved)) throw new PathTraversalError(requestedPath);
 
-  const resolved = path.resolve(candidate);
-
-  // Ensure the resolved path is the sandbox dir itself or nested under it.
-  const relative = path.relative(SANDBOX_DIR, resolved);
-  const isInside =
-    relative === "" ||
-    (!relative.startsWith("..") && !path.isAbsolute(relative));
-
-  if (!isInside) {
-    throw new PathTraversalError(requestedPath);
-  }
-
-  // If the path exists and is (or resolves through) a symlink pointing
-  // outside the sandbox, catch that too by checking the realpath.
-  if (fs.existsSync(resolved)) {
-    const real = fs.realpathSync(resolved);
-    const relReal = path.relative(SANDBOX_DIR, real);
-    const realInside =
-      relReal === "" || (!relReal.startsWith("..") && !path.isAbsolute(relReal));
-    if (!realInside) {
+  // New files have no realpath yet. Check the nearest existing ancestor so
+  // a symlinked parent cannot redirect mkdir/writeFile outside the sandbox.
+  let ancestor = resolved;
+  while (!fs.existsSync(ancestor)) {
+    if (fs.lstatSync(ancestor, {throwIfNoEntry: false})?.isSymbolicLink()) {
       throw new PathTraversalError(requestedPath);
     }
+    const parent = path.dirname(ancestor);
+    if (parent === ancestor) break;
+    ancestor = parent;
+  }
+  const canonicalRoot = fs.existsSync(SANDBOX_DIR) ? fs.realpathSync(SANDBOX_DIR) : SANDBOX_DIR;
+  // An absent sandbox is created by the caller; its own existing parent is
+  // allowed only when it is the direct ancestor of the configured root.
+  if (fs.existsSync(SANDBOX_DIR) && !inside(canonicalRoot, fs.realpathSync(ancestor))) {
+    throw new PathTraversalError(requestedPath);
   }
 
   return resolved;
