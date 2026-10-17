@@ -73,11 +73,23 @@ export async function httpRequest(
       signal: controller.signal,
     });
 
-    const text = await response.text();
-    const truncated =
-      text.length > MAX_RESPONSE_BODY_CHARS
-        ? text.slice(0, MAX_RESPONSE_BODY_CHARS) + "\n...[truncated]"
-        : text;
+    // Decode incrementally and stop reading once the returned text is full.
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+    let text = "";
+    if (reader) {
+      try {
+        while (text.length <= MAX_RESPONSE_BODY_CHARS) {
+          const { done, value } = await reader.read();
+          if (done) { text += decoder.decode(); break; }
+          text += decoder.decode(value, { stream: true });
+        }
+        if (text.length > MAX_RESPONSE_BODY_CHARS) await reader.cancel();
+      } finally { reader.releaseLock(); }
+    }
+    const truncated = text.length > MAX_RESPONSE_BODY_CHARS
+      ? text.slice(0, MAX_RESPONSE_BODY_CHARS) + "\n...[truncated]"
+      : text;
 
     return {
       ok: response.ok,
@@ -98,3 +110,4 @@ export async function httpRequest(
     clearTimeout(timeout);
   }
 }
+
